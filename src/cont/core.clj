@@ -16,32 +16,56 @@
   (call [ctx k]
     (cc k)))
 
-(defmulti application
+(defmulti ^{:arglists '[[cont env & exprs]]}
+  application
   (fn [cont env & exprs]
     (first exprs)))
 
 (declare transform)
 
 (defn cps
-  ([cont env] (cont ()))
+  ([cont _] (cont ()))
   ([cont env expr & exprs]
-     (if exprs
-       (transform (fn [e] (apply cps (fn [es] (cont `(~e ~@es))) env exprs)) env expr)
-       (transform (fn [e] (cont `(~e))) env expr))))
+   (if exprs
+     (transform (fn [e]
+                  (apply cps (fn [es]
+                               (cont `(~e ~@es)))
+                         env exprs))
+                env expr)
+     (transform (fn [e]
+                  (cont `(~e)))
+                env expr))))
 
 (defn transform [cont env expr]
-    (cond (and (symbol? expr) (contains? env expr)) (cont (get env expr))
-          (symbol? expr) (let [a (gensym)] `(call ~expr (fn* [~a] ~(cont a))))
-          (seq? expr) (apply application cont env (macroexpand expr))
-          (vector? expr) (apply cps #(cont (vec %)) env expr)
-          (map? expr) (apply cps #(cont (into {} %)) env expr)
-          :else (cont expr)))
+  (cond (and (symbol? expr)
+             (contains? env expr))
+        (cont (get env expr))
+
+        (symbol? expr)
+        (let [a (gensym)]
+          `(call ~expr (fn* [~a] ~(cont a))))
+
+        (seq? expr)
+        (apply application cont env (macroexpand expr))
+
+        (vector? expr)
+        (apply cps #(cont (vec %)) env expr)
+
+        (map? expr)
+        (apply cps #(cont (into {} %)) env expr)
+
+        :else
+        (cont expr)))
 
 (defmethod application 'if
   ([cont env _ test then]
-     (application cont env 'if test then nil))
+   (application cont env 'if test then nil))
   ([cont env _ test then else]
-     (transform (fn [e] `(if ~e ~(transform cont env then) ~(transform cont env else))) env test)))
+   (transform (fn [e]
+                `(if ~e
+                   ~(transform cont env then)
+                   ~(transform cont env else)))
+              env test)))
 
 (defmethod application 'do [cont env _ & exprs]
   (if exprs
@@ -52,7 +76,8 @@
 
 (defmethod application 'let* [cont env _ bindings & exprs]
   (if (seq bindings)
-    (transform (fn [e] (apply application cont (assoc env (first bindings) e) 'let* (nnext bindings) exprs)) env (second bindings))
+    (transform (fn [e]
+                 (apply application cont (assoc env (first bindings) e) 'let* (nnext bindings) exprs)) env (second bindings))
     (apply application cont env 'do exprs)))
 
 (defmethod application 'letfn* [cont env _ & exprs]
@@ -66,7 +91,8 @@
 
 (defmethod application '. [cont env _ expr method & exprs]
   (let [a (gensym)]
-    (if (and (symbol? expr) (class? (resolve expr)))
+    (if (and (symbol? expr)
+             (class? (resolve expr)))
       (apply cps (fn [es] `(call (. ~expr ~method ~@es) (fn* [~a] ~(cont a)))) env exprs)
       (transform (fn [e] (apply cps (fn [es] `(call (. ~e ~method ~@es) (fn* [~a] ~(cont a)))) env exprs)) env expr))))
 
