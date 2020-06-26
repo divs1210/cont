@@ -1,4 +1,4 @@
-(ns cont.test
+(ns cont.core-test
   (:require [clojure.test :refer :all]
             [cont.core :refer [shift reset]]))
 
