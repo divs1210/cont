@@ -1,10 +1,6 @@
 # cont
 
-A delimited continuations library for Clojure.
-
-[![Build Status](https://travis-ci.org/halcat0x15a/cont.svg?branch=master)](https://travis-ci.org/halcat0x15a/cont)
-
-[![Clojars Project](http://clojars.org/cont/latest-version.svg)](http://clojars.org/cont)
+A [delimited continuations](https://en.wikipedia.org/wiki/Delimited_continuation) library for Clojure.
 
 ## Usage
 
